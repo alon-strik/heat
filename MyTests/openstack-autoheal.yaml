@@ -1,0 +1,46 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/3.3.1/types.yaml
+  - http://www.getcloudify.org/spec/openstack-plugin/1.3.1/plugin.yaml
+  - http://www.getcloudify.org/spec/diamond-plugin/1.3.1/plugin.yaml
+  - types/openstack-types.yaml
+  - types/healing-types.yaml
+
+inputs:
+
+  image:
+    default: '74ff4015-aee1-4e02-aaa8-1c77b2650394'
+
+  flavor:
+    default: '05a9e6d1-d29f-4e98-9eab-51c9a6beed44'
+
+  agent_user:
+    default: centos
+
+
+node_templates:
+
+  healing_container:
+    type: cloudify.nodes.Compute
+    properties:
+      agent_config:
+        install_method: none
+
+  healing_watchdog:
+    type: healing_node_type
+    relationships:
+      - target:  webServers
+        type: cloudify.relationships.depends_on
+      - target: healing_container
+        type: cloudify.relationships.contained_in
+    properties:
+      nodes_to_monitor:
+        - webServers
+
+  webServers:
+    type: nodes.MonitoredServer
+    instances:
+      deploy: 2
+
+
