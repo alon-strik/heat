@@ -1,0 +1,28 @@
+heat_template_version: 2013-05-23
+
+description: |
+  The heat template is used to demo the 'console_urls' attribute
+  of OS::Nova::Server.
+
+parameters:
+  image:
+    type: string
+    default: Fedora-Cloud-Base-25-1.3.x86_64
+  flavor:
+    type: string
+    default: m1.heat
+
+resources:
+  server:
+    type: OS::Nova::Server
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+
+outputs:
+  single_console_type:
+    value: { get_attr: server, console_urls, novnc }
+    description: console URL for the server (novnc in this case)
+  all_console_urls:
+    value: { get_attr: [server, console_urls] }
+    description: all available console URLs for the server

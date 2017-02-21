@@ -1,0 +1,4 @@
+$ openstack stack create -t ./WordPress_Native.yaml \
+  --parameter key_name=heat_key \
+  --parameter image_id=my-fedora-image \
+  --parameter instance_type=m1.small   teststack
