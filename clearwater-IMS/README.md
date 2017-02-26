@@ -1,0 +1,1 @@
+# clearwater-no-chef-example

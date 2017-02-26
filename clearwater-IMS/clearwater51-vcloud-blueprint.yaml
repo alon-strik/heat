@@ -1,0 +1,387 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/3.3m4/types.yaml
+  - https://raw.githubusercontent.com/cloudify-cosmo/tosca-vcloud-plugin/1.3m4/plugin.yaml
+  - diamond.yaml
+  - snmp-types.yaml
+
+plugins:
+    dns-plugin:
+        executor: host_agent
+        source: dns-plugin
+
+relationships:
+    dns_client_uses_dns_server:
+       derived_from: cloudify.relationships.connected_to
+       source_interfaces:
+          cloudify.interfaces.relationship_lifecycle:
+             preconfigure: dns-plugin.dns_plugin.tasks.configure_resolv_conf
+
+node_types:
+    policy_node_type:
+       derived_from: cloudify.nodes.SoftwareComponent
+       properties:
+          nodes_to_monitor:
+             default: [] 
+       interfaces:
+          cloudify.interfaces.lifecycle:
+             start:
+                implementation: scripts/policy-start.sh
+                executor: central_deployment_agent
+             stop:
+                implementation: scripts/policy-stop.sh
+                executor: central_deployment_agent
+
+    vcloud_configuration:
+        derived_from: cloudify.nodes.Root
+        properties:
+            vcloud_config: {}
+
+    
+inputs:
+    server_catalog:
+        type: string
+        default: 'Public Catalog'
+        description: >
+            Name of catalog, can be 'Public Catalog'
+    server_template:
+        type: string
+        default: 'Ubuntu Server 12.04 LTS (amd64 20150127)'
+        description: >
+            Name of template from catalog,
+            can be 'Ubuntu Server 12.04 LTS (amd64 20150127)'
+    ssh_user:
+        type: string
+    auto_generate_ssh_keys:
+        type: boolean
+    vcloud_vdc:
+        type: string
+    edge_gateway:
+        type: string
+    vcloud_username:
+        type: string
+    vcloud_password:
+        type: string
+    vcloud_token:
+        type: string
+        default: ''
+    vcloud_instance:
+        type: string
+        default: ''
+    vcloud_service:
+        type: string
+        default: ''
+    vcloud_org:
+        type: string
+        default: ''
+    vcloud_url:
+        type: string
+        default: vca.vmware.com
+    vcloud_service_type:
+        type: string
+        default: ondemand
+    vcloud_api_version:
+        type: string
+        default: '5.7'
+
+    server:
+        default:
+            template: Ubuntu Server 12.04 LTS (amd64 20150127)
+            catalog: Public Catalog
+            hardware:
+                cpu: 2
+                memory: 2048
+    management_network: 
+        default: manager-net
+
+
+
+node_templates:
+
+    vcloud_configuration:
+        type: vcloud_configuration
+        properties:
+            vcloud_config:
+                username: { get_input: vcloud_username }
+                password: { get_input: vcloud_password }
+                token: { get_input: vcloud_token }
+                url: { get_input: vcloud_url }
+                service: { get_input: vcloud_service }
+                org: { get_input: vcloud_org }
+                vdc: { get_input: vcloud_vdc }
+                service_type: { get_input: vcloud_service_type }
+                instance: { get_input: vcloud_instance }
+                api_version: { get_input: vcloud_api_version }
+                edge_gateway: { get_input: edge_gateway }
+    a_node:
+        type: cloudify.nodes.Compute
+        properties:
+           install_agent: false
+
+    policy_node:
+        type: policy_node_type
+        relationships:
+           - target: bono_vm
+             type: cloudify.relationships.depends_on
+           - target: sprout_vm
+             type: cloudify.relationships.depends_on
+           - target: a_node
+             type: cloudify.relationships.contained_in
+        properties:
+           nodes_to_monitor:
+              - bono_vm
+              - sprout_vm
+
+    ssh_keypair:
+      type: cloudify.vcloud.nodes.KeyPair
+      properties:
+        auto_generate: { get_input: auto_generate_ssh_keys }
+        public_key:
+          user: { get_input: ssh_user }
+
+
+    bono_vm:
+        type: cloudify.vcloud.nodes.Server
+        properties:
+           server: { get_input: server }
+           management_network: { get_input: management_network }
+           vcloud_config: { get_property: [vcloud_configuration, vcloud_config] }
+        interfaces:          
+            cloudify.interfaces.monitoring_agent:
+               install:
+                  implementation: diamond.diamond_agent.tasks.install
+                  inputs:
+                     diamond_config: 
+                        interval: 5
+               start: diamond.diamond_agent.tasks.start
+               stop: diamond.diamond_agent.tasks.stop
+               uninstall: diamond.diamond_agent.tasks.uninstall
+
+            cloudify.interfaces.monitoring:
+               start:
+                  implementation: diamond.diamond_agent.tasks.add_collectors
+                  inputs:
+                     collectors_config:
+                           CPUCollector: {}
+        relationships:
+            - target: ssh_keypair
+              type: cloudify.vcloud.server_connected_to_keypair
+
+
+    ellis_vm:
+        type: cloudify.vcloud.nodes.Server
+        properties:
+           server: { get_input: server }
+           management_network: { get_input: management_network }
+           vcloud_config: { get_property: [vcloud_configuration, vcloud_config] }
+        relationships:
+            - target: ssh_keypair
+              type: cloudify.vcloud.server_connected_to_keypair
+        
+    sprout_vm:
+        type: cloudify.vcloud.nodes.Server
+        properties:
+           server: { get_input: server }
+           management_network: { get_input: management_network }
+           vcloud_config: { get_property: [vcloud_configuration, vcloud_config] }
+        relationships:
+            - target: ssh_keypair
+              type: cloudify.vcloud.server_connected_to_keypair
+
+        interfaces:
+            cloudify.interfaces.monitoring_agent:
+               install:
+                  implementation: diamond.diamond_agent.tasks.install
+                  inputs:
+                     diamond_config:
+                        interval: 5
+               start: diamond.diamond_agent.tasks.start
+               stop: diamond.diamond_agent.tasks.stop
+               uninstall: diamond.diamond_agent.tasks.uninstall
+
+            cloudify.interfaces.monitoring:
+               start:
+                  implementation: diamond.diamond_agent.tasks.add_collectors
+                  inputs:
+                     collectors_config:
+                           CPUCollector: {}
+    homer_vm:
+        type: cloudify.vcloud.nodes.Server
+        properties:
+           server: { get_input: server }
+           management_network: { get_input: management_network }
+           vcloud_config: { get_property: [vcloud_configuration, vcloud_config] }
+        relationships:
+            - target: ssh_keypair
+              type: cloudify.vcloud.server_connected_to_keypair
+    
+    homestead_vm:
+        type: cloudify.vcloud.nodes.Server
+        properties:
+           server: { get_input: server }
+           management_network: { get_input: management_network }
+           vcloud_config: { get_property: [vcloud_configuration, vcloud_config] }
+        relationships:
+            - target: ssh_keypair
+              type: cloudify.vcloud.server_connected_to_keypair
+                
+    ralf_vm:
+        type: cloudify.vcloud.nodes.Server
+        properties:
+           server: { get_input: server }
+           management_network: { get_input: management_network }
+           vcloud_config: { get_property: [vcloud_configuration, vcloud_config] }
+        relationships:
+            - target: ssh_keypair
+              type: cloudify.vcloud.server_connected_to_keypair
+                
+    dns_vm:
+        type: cloudify.vcloud.nodes.Server
+        properties:
+           server: { get_input: server }
+           management_network: { get_input: management_network }
+           vcloud_config: { get_property: [vcloud_configuration, vcloud_config] }
+        relationships:
+            - target: ssh_keypair
+              type: cloudify.vcloud.server_connected_to_keypair
+                
+    bono_app:
+        type: cloudify.nodes.SoftwareComponent
+        interfaces:
+           cloudify.interfaces.lifecycle:
+              start:
+                 implementation: scripts/bono.sh
+                 inputs:
+                    public_ip: { get_attribute: [ bono_vm, ip ] }
+                    dns_ip: { get_attribute: [ dns_vm, ip ]  }
+                    process:
+                       command_prefix: "/usr/bin/sudo dns_ip=$dns_ip: public_ip=$public_ip "
+        relationships:
+            -  type: cloudify.relationships.contained_in
+               target: bono_vm
+            -  type: dns_client_uses_dns_server
+               target: dns_app
+               
+    ellis_app:
+        type: cloudify.nodes.SoftwareComponent
+        interfaces:
+           cloudify.interfaces.lifecycle:
+              create:
+                 implementation: scripts/ellis.sh
+                 inputs:
+                    public_ip: { get_attribute: [ellis_vm, ip ] }
+                    dns_ip: { get_attribute: [dns_vm, ip] }
+                    process:
+                       command_prefix: /usr/bin/sudo
+        relationships:
+            -  type: cloudify.relationships.contained_in
+               target: ellis_vm
+            -  type: dns_client_uses_dns_server
+               target: dns_app
+               
+    ralf_app:
+        type: cloudify.nodes.SoftwareComponent 
+        interfaces:
+           cloudify.interfaces.lifecycle:
+              create:
+                 implementation: scripts/ralf.sh
+                 inputs:
+                    dns_ip: { get_attribute: [ dns_vm, ip ] }
+                    process:
+                       command_prefix: /usr/bin/sudo
+        relationships:
+            -  type: cloudify.relationships.contained_in
+               target: ralf_vm
+            -  type: dns_client_uses_dns_server
+               target: dns_app
+               
+    homestead_app:
+        type: cloudify.nodes.SoftwareComponent 
+        interfaces:
+           cloudify.interfaces.lifecycle:
+              create:
+                 implementation: scripts/homestead.sh
+                 inputs:
+                    dns_ip: { get_attribute: [dns_vm, ip] }
+                    process:
+                       command_prefix: /usr/bin/sudo
+        relationships:
+            -  type: cloudify.relationships.contained_in
+               target: homestead_vm
+            -  type: dns_client_uses_dns_server
+               target: dns_app
+               
+    homer_app:
+        type: cloudify.nodes.SoftwareComponent
+        interfaces:
+           cloudify.interfaces.lifecycle:
+              create:
+                 implementation: scripts/homer.sh
+                 inputs:
+                    dns_ip: { get_attribute: [dns_vm, ip] }
+                    process:
+                       command_prefix: /usr/bin/sudo
+        relationships:
+            -  type: cloudify.relationships.contained_in
+               target: homer_vm
+            -  type: dns_client_uses_dns_server
+               target: dns_app
+               
+    sprout_app:
+        type: cloudify.nodes.SoftwareComponent 
+        interfaces:
+           cloudify.interfaces.lifecycle:
+              create:
+                 implementation: scripts/sprout.sh
+                 inputs:
+                    dns_ip: { get_attribute: [dns_vm, ip] }
+                    process:
+                       command_prefix: /usr/bin/sudo
+        relationships:
+            -  type: cloudify.relationships.contained_in
+               target: sprout_vm
+            -  type: dns_client_uses_dns_server
+               target: dns_app
+
+    dns_app:
+        type: cloudify.nodes.SoftwareComponent 
+        interfaces:
+           cloudify.interfaces.lifecycle:
+              create:
+                 implementation: scripts/dns.sh
+                 inputs:
+                    dns_ip: { get_attribute: [dns_vm, ip] }
+                    process:
+                       command_prefix: /usr/bin/sudo
+        relationships:
+            -  type: cloudify.relationships.contained_in
+               target: dns_vm
+
+    dns_app_config:
+        type: cloudify.nodes.SoftwareComponent
+        interfaces:
+           cloudify.interfaces.lifecycle:
+              create:
+                 implementation: scripts/dns-config.sh
+                 inputs:
+                    process:
+                       command_prefix: /usr/bin/sudo
+        relationships:
+                -  type: cloudify.relationships.contained_in
+                   target: dns_vm
+                -  type: cloudify.relationships.connected_to
+                   target: dns_app
+                -  type: cloudify.relationships.connected_to
+                   target: bono_app
+                -  type: cloudify.relationships.connected_to
+                   target: ellis_app
+                -  type: cloudify.relationships.connected_to
+                   target: ralf_app
+                -  type: cloudify.relationships.connected_to
+                   target: sprout_app
+                -  type: cloudify.relationships.connected_to
+                   target: homer_app
+                -  type: cloudify.relationships.connected_to
+                   target: homestead_app
+    
