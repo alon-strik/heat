@@ -1,0 +1,5 @@
+image: '6c3047c6-17b1-4aaf-a657-9229bb481e50'
+flavor: '8e6069a3-d8c6-4741-8e0d-6373b2ca38cc'
+agent_user: 'ubuntu'
+vcpe_name: 'customer_vCPE'
+provider_name: 'provider_vCPE'

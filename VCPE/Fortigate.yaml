@@ -1,0 +1,207 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+
+  - http://www.getcloudify.org/spec/cloudify/3.4m4/types.yaml
+  - http://www.getcloudify.org/spec/fabric-plugin/1.4/plugin.yaml
+  - http://www.getcloudify.org/spec/openstack-plugin/1.3.1/plugin.yaml
+  - http://www.getcloudify.org/spec/diamond-plugin/1.3.2/plugin.yaml
+  - plugins/cloudify-fortigate-plugin/plugin.yaml
+
+
+inputs:
+
+  provider_net_id:
+    type: string
+    default: 'privateExternal'
+
+  fortigate_user:
+    default: admin
+
+  fortigate_password:
+    default: ' '
+
+  fortigate_image:
+#    default: '8b8fa98d-19dd-4393-b886-c430b17a7465'
+    default: '45972b85-fff4-496b-800f-6b66310e0913'
+#   default: 'Fortigate_Image'
+
+  flavor:
+    default: '8e6069a3-d8c6-4741-8e0d-6373b2ca38cc'
+#   default: dc1.1x1.20
+
+
+  external_network_name:
+    type: string
+    default: external
+
+  providerNetwork:
+    type: string
+    default: provider-network
+
+  providerSubnet:
+    type: string
+    default: private-subnet #WanSubnet
+
+  lanNetwork:
+    type: string
+    default: LanNetwork
+
+  lanSubnet:
+    type: string
+    default: LanNetworkSubnet
+
+  policy_name:
+    type: string
+    default: 'DemoPolicy'
+
+  policy_action:
+    type: string
+    default: 'accept'
+
+# Service already exist on Fortigate (http,https,dns)
+
+  policy_service:
+    type: string
+    default: 'Web Access'
+
+  policy_srcinterface:
+    type: string
+    default: 'port2'
+
+  policy_dstinterface:
+    type: string
+    default: 'port3'
+
+###
+  service_name:
+    type: string
+    default: 'TCPportsAllow'
+
+  service_protocol:
+    type: string
+    default: 'TCP/UDP/SCTP'
+
+  service_portrange:
+    type: string
+    default: '100-150'
+
+node_types:
+
+   firewall:
+    derived_from: cloudify.openstack.nodes.Server
+    properties:
+      install_agent:
+        default: false
+      server:
+        default:
+            image: { get_input: fortigate_image }
+            flavor: { get_input: flavor }
+            name: Fortigate-Server
+
+node_templates:
+
+
+  fortigate:
+    type: firewall
+    relationships:
+      - target: provider_network
+        type: cloudify.relationships.connected_to
+      - target: lan_network
+        type: cloudify.relationships.connected_to
+      - target: fortigate_ip
+        type: cloudify.openstack.server_connected_to_floating_ip
+
+
+  fortigate.network.config:
+    type: cloudify.nodes.Compute
+    properties:
+      install_agent: false
+    relationships:
+      - target: lan_network
+        type: cloudify.relationships.depends_on
+      - target: fortigate
+        type: cloudify.relationships.contained_in
+
+
+
+  provider_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: provider_net_id } #provider-network
+      use_external_resource : true
+
+
+
+  lan_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: lanNetwork }
+      use_external_resource : false
+
+  lan_network_subnet:
+    type: cloudify.openstack.nodes.Subnet
+    properties:
+      resource_id: { get_input: lanSubnet }
+      use_external_resource : false
+      subnet:
+        ip_version: 4
+        cidr: 162.10.0.0/24
+        gateway_ip: 162.10.0.1
+    relationships:
+      - target: lan_network
+        type: cloudify.relationships.contained_in
+
+
+  fortigate_ip:
+    type: cloudify.openstack.nodes.FloatingIP
+    properties:
+      floatingip:
+        floating_network_name: { get_input: external_network_name }
+
+
+workflows:
+
+  add_fw_service:
+    mapping: fortigate.plugin.tasks.create_service
+    parameters:
+      username:
+        default: { }
+      password:
+        default: { }
+      protocol:
+        default: { }
+      portrange:
+        default: { }
+      serviceName:
+        default: { }
+
+  add_fw_policy:
+    mapping: fortigate.plugin.tasks.create_policy
+    parameters:
+      username:
+        default: { }
+      password:
+        default: { }
+      policyId:
+        default: { }
+      policyName:
+        default: { }
+      srcintf:
+        default: { }
+      dstintf:
+        default: { }
+      action:
+        default: { }
+      serviceName:
+        default: { }
+
+
+outputs:
+  public_endpoint:
+    value:
+      fw_public_ip: { get_attribute: [ fortigate_ip, floating_ip_address ] }
+
+  private_endpoint:
+    value:
+      ip_address: { get_attribute: [ fortigate, ip ] }

@@ -1,0 +1,21 @@
+Fortinet Developer Network
+yixian.awyong@nera.net,
+
+Your account has been created successfully at Fortinet Developer Network.
+If we were waiting on a parental consent form, this means the form has been received and documented.
+
+Your details are as follows:
+
+Username:       yixian.awyong@nera.net
+Email Address:  yixian.awyong@nera.net
+Password:       vkSx5kQT
+
+Visit this link to join into our discussions!
+
+https://fndn.fortinet.net/index.php
+Fortinet Developer Network
+------------------------------------------------------------------
+
+Sample Python script to access FortiOS APIs
+
+python fgt_api.py <fgt_ip> <vdom>
