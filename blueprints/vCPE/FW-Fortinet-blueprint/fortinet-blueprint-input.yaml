@@ -1,0 +1,8 @@
+agent_password: "admin"
+agent_user: "admin"
+flavor: "05a9e6d1-d29f-4e98-9eab-51c9a6beed44"
+fortinet_image: "8ac5e0fe-097e-46ab-8b30-a55dcba3dede"
+lb_network1: ''
+lb_network1_subnet: ''
+app_network2: ''
+app_network2_subnet: ''

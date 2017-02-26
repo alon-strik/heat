@@ -1,0 +1,325 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+
+  - http://www.getcloudify.org/spec/cloudify/3.4m4/types.yaml
+  - http://www.getcloudify.org/spec/fabric-plugin/1.4/plugin.yaml
+  - http://www.getcloudify.org/spec/openstack-plugin/1.3.1/plugin.yaml
+  - http://www.getcloudify.org/spec/diamond-plugin/1.3.2/plugin.yaml
+  - plugins/cloudify-fortinet-plugin/plugin.yaml
+#  - plugins/cloudify-fortigate-plugin/plugin.yaml
+
+
+inputs:
+
+  provider_net_id:
+    type: string
+    default: 'privateExternal'
+
+  fortigate_user:
+    default: admin
+
+  fortigate_password:
+    default: ' '
+
+  fortigate_image:
+    default: '793cf81a-024e-4c37-822d-f482dde2a760'
+# centos default: '45972b85-fff4-496b-800f-6b66310e0913'
+
+  flavor:
+    default: '8e6069a3-d8c6-4741-8e0d-6373b2ca38cc'
+#   default: dc1.1x1.20
+
+
+  external_network_name:
+    type: string
+    default: external
+
+  providerNetwork:
+    type: string
+    default: privateExternal
+#    default: provider-network
+
+  providerSubnet:
+    type: string
+    default: private-subnet #WanSubnet
+#    default: private-subnet #WanSubnet
+
+  lanNetwork:
+    type: string
+    default: privateLan
+#    default: LanNetwork
+
+  lanSubnet:
+    type: string
+    default: privateLan-subnet
+#    default: LanNetworkSubnet
+
+  policy_name:
+    type: string
+    default: 'DemoPolicy'
+
+  policy_action:
+    type: string
+    default: 'accept'
+
+# Service already exist on Fortigate (http,https,dns)
+
+  policy_service:
+    type: string
+    default: 'Web Access'
+
+  policy_srcinterface:
+    type: string
+    default: 'port2'
+
+  policy_dstinterface:
+    type: string
+    default: 'port3'
+
+###
+  service_name:
+    type: string
+    default: 'TCPportsAllow'
+
+  service_protocol:
+    type: string
+    default: 'TCP/UDP/SCTP'
+
+  service_portrange:
+    type: string
+    default: '100-150'
+
+  ssh_password:
+    type: string
+    default: ''
+
+dsl_definitions:
+  ssh_config: &ssh_config
+    host_string: { get_attribute: [ fortigate_ip, floating_ip_address ] }
+    user: admin
+    password: ''
+
+
+node_types:
+
+  firewall:
+    derived_from: cloudify.openstack.nodes.Server
+    properties:
+      install_agent:
+        default: false
+      server:
+        default:
+            image: { get_input: fortigate_image }
+            flavor: { get_input: flavor }
+            name: Fortigate-Server
+
+node_templates:
+
+
+  fortigate:
+    type: firewall
+    relationships:
+      - target: provider_network
+        type: cloudify.relationships.connected_to
+      - target: lan_network
+        type: cloudify.relationships.connected_to
+      - target: fortigate_ip
+        type: cloudify.openstack.server_connected_to_floating_ip
+
+
+  fortigate.network.config:
+    type: cloudify.nodes.Compute
+    properties:
+      install_agent: false
+    relationships:
+      - target: lan_network
+        type: cloudify.relationships.depends_on
+      - target: fortigate
+        type: cloudify.relationships.contained_in
+
+
+
+  provider_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: provider_net_id } #provider-network
+      use_external_resource : true
+
+
+
+  lan_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: lanNetwork }
+      use_external_resource : true
+
+#  lan_network_subnet:
+#    type: cloudify.openstack.nodes.Subnet
+#    properties:
+#      resource_id: { get_input: lanSubnet }
+#      use_external_resource : true
+#      subnet:
+#        ip_version: 4
+#        cidr: 162.10.0.0/24
+#        gateway_ip: 162.10.0.1
+#    relationships:
+#      - target: lan_network
+#        type: cloudify.relationships.contained_in
+
+
+  fortigate_ip:
+    type: cloudify.openstack.nodes.FloatingIP
+    properties:
+      floatingip:
+        floating_network_name: { get_input: external_network_name }
+
+#
+#workflows:
+#
+#  add_fw_service:
+#    mapping: fortigate.plugin.tasks.create_service
+#    parameters:
+#      username:
+#        default: { }
+#      password:
+#        default: { }
+#      protocol:
+#        default: { }
+#      portrange:
+#        default: { }
+#      serviceName:
+#        default: { }
+#
+#  add_fw_policy:
+#    mapping: fortigate.plugin.tasks.create_policy
+#    parameters:
+#      username:
+#        default: { }
+#      password:
+#        default: { }
+#      policyId:
+#        default: { }
+#      policyName:
+#        default: { }
+#      srcintf:
+#        default: { }
+#      dstintf:
+#        default: { }
+#      action:
+#        default: { }
+#      serviceName:
+#        default: { }
+
+
+#  # Configure our FortiGate LAN interface
+#  fortigate_lan_config:
+#    type: cloudify.Fortinet.FortiGate.Config
+#    interfaces:
+#      cloudify.interfaces.lifecycle:
+#        create:
+#          inputs:
+#            config_name: system interface
+#            config_id: port2
+#            config:
+#            - ip: { concat: [get_attribute: [nic_private, aws_private_ip_address], /24] }
+#            - defaultgw: { get_input: aws_subnet_private_gateway }
+#            ssh_config: *ssh_config
+#    relationships:
+#    - type: cloudify.relationships.contained_in
+#      target: fortigate_vm
+
+#  # Create a Virtual IP to use with a particular service
+#  fortigate_vip_1:
+#    type: cloudify.Fortinet.FortiGate.Firewall.VIP
+#    interfaces:
+#      cloudify.interfaces.lifecycle:
+#        create:
+#          inputs:
+#            config_id: Linux-VM-SSH
+#            config:
+#            - extintf: port1
+#            - portforward: enable
+#            - mappedip: { get_attribute: [nic_test_private, aws_private_ip_address] }
+#            - extport: 2222
+#            - mappedport: 22
+#            ssh_config: *ssh_config
+#    relationships:
+#    - type: cloudify.relationships.contained_in
+#      target: fortigate_vm
+#    - type: cloudify.relationships.depends_on
+#      target: test_lan_vm
+
+  # Allow traffic to pass from LAN to WAN (outbound access)
+  # Enable NAT
+
+  fortigate_policy_enable_nat:
+    type: cloudify.Fortinet.FortiGate.Firewall.Policy
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          inputs:
+            config_id: 2
+            config:
+            - name: Enable NAT
+            - srcintf: port3
+            - dstintf: port2
+            - srcaddr: all
+            - dstaddr: all
+            - action: accept
+            - schedule: always
+            - service: ALL
+            - nat: enable
+            ssh_config: *ssh_config
+    relationships:
+    - type: cloudify.relationships.contained_in
+      target: fortigate
+
+#  # Allow traffic inbound to VIP 1 service
+#  # Enable default Anti-Virus scanning, IPS
+#  fortigate_policy_allow_vip_1:
+#    type: cloudify.Fortinet.FortiGate.Firewall.Policy
+#    interfaces:
+#      cloudify.interfaces.lifecycle:
+#        create:
+#          inputs:
+#            config_id: 2
+#            config:
+#            - name: Allow VIP 1
+#            - srcintf: port1
+#            - dstintf: port2
+#            - srcaddr: all
+#            - dstaddr: Linux-VM-SSH
+#            - action: accept
+#            - schedule: always
+#            - service: ALL
+#            - utm-status: enable
+#            - av-profile: default
+#            - ips-sensor: default
+#            - profile-protocol-options: default
+#            ssh_config: *ssh_config
+#    relationships:
+#    - type: cloudify.relationships.contained_in
+#      target: fortigate_vm
+#    - type: cloudify.relationships.depends_on
+#      target: fortigate_vip_1
+
+
+
+
+
+
+
+
+
+
+
+
+outputs:
+  public_endpoint:
+    value:
+      fw_public_ip: { get_attribute: [ fortigate_ip, floating_ip_address ] }
+
+  private_endpoint:
+    value:
+      ip_address: { get_attribute: [ fortigate, ip ] }

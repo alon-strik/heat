@@ -1,0 +1,4 @@
+plugins:
+  fortinet:
+    executor: central_deployment_agent
+    package_name: cloudify-fortinet-plugin

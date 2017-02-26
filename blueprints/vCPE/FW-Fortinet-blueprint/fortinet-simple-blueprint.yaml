@@ -1,0 +1,82 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.3.1/types.yaml
+    - http://www.getcloudify.org/spec/fabric-plugin/1.3.1/plugin.yaml
+    - plugins/cloudify-fortinet-plugin/plugin.yaml
+
+inputs:
+
+  agent_user:
+    default: admin
+  host_ip:
+    default: ''
+  agent_private_key_path:
+    default: ''
+
+  internal_port:
+    default: '10.10.1.10'
+  external_port:
+    default: '172.10.1.10'
+
+node_types:
+
+  fortinet.nodes.Server:
+    derived_from: cloudify.nodes.Compute
+
+  fortinet.port:
+    derived_from: cloudify.nodes.Port
+    properties:
+      ip:
+        default: ''
+
+  fortinet.port.config:
+    derived_from: cloudify.nodes.ApplicationServer
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        configure:
+           implementation: fortinet.fortinet_plugin.tasks.port_local_config
+           executor: central_deployment_agent
+
+  fortinet.policy.config:
+    derived_from: cloudify.nodes.ApplicationServer
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        configure:
+           implementation: fortinet.fortinet_plugin.tasks.policy_local_config
+           executor: central_deployment_agent
+
+node_templates:
+
+  FortinetHost:
+    type: fortinet.nodes.Server
+    properties:
+      ip: { get_input: host_ip }
+      install_agent: false
+
+  FortinetPortConfig:
+    type: fortinet.port.config
+    relationships:
+      - target: external_network
+        type: cloudify.relationships.connected_to
+      - target: internal_network
+        type: cloudify.relationships.connected_to
+      - target: FortinetHost
+        type: cloudify.relationships.contained_in
+
+  FortinetPolicyConfig:
+    type: fortinet.policy.config
+    relationships:
+      - target: FortinetHost
+        type: cloudify.relationships.contained_in
+
+  internal_network:
+    type: fortinet.port
+    properties:
+      ip: { get_input: internal_port }
+
+  external_network:
+    type: fortinet.port
+    properties:
+      ip: { get_input: external_port }
+

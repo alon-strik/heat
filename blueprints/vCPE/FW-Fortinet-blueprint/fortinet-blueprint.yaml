@@ -1,0 +1,168 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+    - http://10.60.0.12:8000/cloudify-types.yaml
+    - http://10.60.0.12:8000/openstack-plugin.yaml
+    - http://10.60.0.12:8000/fabric-plugin.yaml
+#    - plugins/cloudify-fortinet-plugin/plugin.yaml
+
+inputs:
+
+  agent_user:
+    default: admin
+
+  fortinet_image:
+    default: '77379bce-8fbc-4e90-8570-6e873055f06b' # snapshot
+#   default: 'd9648527-6d9b-468c-9d5d-4fdf235c20be' # original
+
+  flavor:
+    default: '3'
+
+  agent_password:
+    default: admin
+
+# inpute from composition
+  lb_network:
+    type: string
+    default: LBnetwork
+
+# inpute from composition
+  lb_network_subnet:
+    type: string
+    default: LBnetwork_subnet
+
+# inpute from composition
+  app_network:
+    type: string
+    default: APPnetwork
+
+# inpute from composition
+  app_network_subnet:
+    type: string
+    default: APPnpetwork_subnet
+
+  external_network_name:
+    type: string
+    default: VIO-External-01_VLAN301
+
+#node_types:
+
+#  fortinet.port.config:
+#    derived_from: cloudify.nodes.SoftwareComponent
+#    interfaces:
+#      cloudify.interfaces.lifecycle:
+#        configure:
+#           implementation: fortinet.fortinet_plugin.tasks.port_config
+#           executor: central_deployment_agent
+
+#  fortinet.policy.config:
+#    derived_from: cloudify.nodes.SoftwareComponent
+#    interfaces:
+#      cloudify.interfaces.lifecycle:
+#        configure:
+#           implementation: fortinet.fortinet_plugin.tasks.fw_config
+#           executor: central_deployment_agent
+
+node_templates:
+
+  FortinetHost:
+    type: cloudify.openstack.nodes.Server
+    properties:
+      install_agent: false
+      image: { get_input: fortinet_image }
+      flavor: { get_input: flavor }
+    relationships:
+      - target: lb_network_port
+        type: cloudify.openstack.server_connected_to_port
+
+      - target: app_network_port
+        type: cloudify.openstack.server_connected_to_port
+
+      - target: server_float_ip
+        type: cloudify.openstack.server_connected_to_floating_ip
+
+#  FortinetPortConfig:
+#    type: fortinet.port.config
+#    relationships:
+#      - target: lb_network_port
+#        type: cloudify.openstack.server_connected_to_port
+#      - target: app_network_port
+#        type: cloudify.openstack.server_connected_to_port
+#      - target: FortinetHost
+#        type: cloudify.relationships.contained_in
+
+#  FortinetPolicyConfig:
+#    type: fortinet.policy.config
+#    relationships:
+#      - target: FortinetHost
+#        type: cloudify.relationships.contained_in
+
+
+#  LB network
+
+  lb_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: lb_network }
+      use_external_resource : false
+
+  lb_network_subnet:
+    type: cloudify.openstack.nodes.Subnet
+    properties:
+      resource_id: { get_input: lb_network_subnet }
+      use_external_resource : false
+      subnet:
+        ip_version: 4
+        cidr: 172.30.0.0/24
+        gateway_ip: 172.30.0.1
+    relationships:
+      - target: lb_network
+        type: cloudify.relationships.contained_in
+
+  lb_network_port:
+    type: cloudify.openstack.nodes.Port
+    properties:
+      use_external_resource : false
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: lb_network
+      - type: cloudify.relationships.depends_on
+        target: lb_network_subnet
+
+#  APP network
+
+  app_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: app_network }
+      use_external_resource : false
+
+  app_network_subnet:
+    type: cloudify.openstack.nodes.Subnet
+    properties:
+      resource_id: { get_input: app_network_subnet }
+      use_external_resource : false
+      subnet:
+        ip_version: 4
+        cidr: 172.20.0.0/29
+        gateway_ip: 172.20.0.1
+    relationships:
+      - target: app_network
+        type: cloudify.relationships.contained_in
+
+  app_network_port:
+    type: cloudify.openstack.nodes.Port
+    properties:
+      use_external_resource : false
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: app_network
+      - type: cloudify.relationships.depends_on
+        target: app_network_subnet
+
+  server_float_ip:
+    type: cloudify.openstack.nodes.FloatingIP
+    properties:
+      floatingip:
+        floating_network_name: { get_input: external_network_name }
+
