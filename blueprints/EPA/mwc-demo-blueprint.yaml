@@ -1,0 +1,238 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+
+    - http://www.getcloudify.org/spec/cloudify/3.3/types.yaml
+    - http://www.getcloudify.org/spec/openstack-plugin/1.3/plugin.yaml
+    - http://www.getcloudify.org/spec/fabric-plugin/1.3/plugin.yaml
+#    - plugins/cloudify-openRouter-plugin/plugin.yaml
+
+
+inputs:
+
+  agent_user:
+    default: admin
+  openRouter_image:
+    default: ''
+  flavor:
+    default: ''
+  agent_password:
+    default: ''
+  external_network_name:
+    default: ''
+  lan_network_name:
+    default: ''
+  lan_network_subnet_name:
+    default: ''
+  lan_network_port_name:
+    default: ''
+  wan_network_name:
+    default: ''
+  wan_network_subnet_name:
+    default: ''
+  wan_network_port_name:
+    default: ''
+  igw_router_name:
+    default: ''
+
+node_types:
+
+  openRouter.config.ports:
+    derived_from: cloudify.nodes.SoftwareComponent
+
+  openRouter.static.route:
+    derived_from: cloudify.nodes.SoftwareComponent
+
+node_templates:
+
+  openRouterHost:
+    type: cloudify.openstack.nodes.Server
+    properties:
+      install_agent: false
+      image: { get_input: openRouter_image }
+      flavor: { get_input: flavor }
+    relationships:
+      - target: admin_managment_ip
+        type: cloudify.openstack.server_connected_to_floating_ip
+      - target: lan_network_port
+        type: cloudify.openstack.server_connected_to_port
+      - target: wan_network_port
+        type: cloudify.openstack.server_connected_to_port
+
+  openRouterConfigPorts:
+    type: openRouter.config.ports
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        configure:
+           implementation: fabric.fabric_plugin.tasks.run_task
+           inputs:
+             tasks_file: scripts/routerConfigure.py
+             task_name: configure_ports
+             fabric_env:
+                user: { get_input: agent_user }
+
+
+    relationships:
+      - target: lan_network_port
+        type: cloudify.relationships.connected_to
+      - target: wan_network_port
+        type: cloudify.relationships.connected_to
+      - target: openRouterHost
+        type: cloudify.relationships.contained_in
+
+#  openRouterRouteConfig:
+#    type: openRouter.static.route
+#    interfaces:
+#      cloudify.interfaces.lifecycle:
+#        configure:
+#           implementation: openRouter.openRouter_plugin.tasks.route_config
+#           executor: central_deployment_agent
+#           inputs:
+#               gateway: { get_property: [wan_network_subnet, subnet, gateway_ip] }
+#
+#    relationships:
+#      - target: openRouterHost
+#        type: cloudify.relationships.contained_in
+#      - target: openRouterPortConfig
+#        type: cloudify.relationships.depends_on
+
+#  openRouterNATConfig:
+#    type: openRouter.nat.config
+#    interfaces:
+#      cloudify.interfaces.lifecycle:
+#        configure:
+#           implementation: openRouter.openRouter_plugin.tasks.route_config
+#           executor: central_deployment_agent
+#           inputs:
+#               gateway: { get_property: [wan_network_subnet, subnet, gateway_ip] }
+#
+#    relationships:
+#      - target: openRouterHost
+#        type: cloudify.relationships.contained_in
+#      - target: openRouterPortConfig
+#        type: cloudify.relationships.depends_on
+
+# Create floating ip to access admin gui
+
+  admin_managment_ip:
+    type: cloudify.openstack.nodes.FloatingIP
+    properties:
+      floatingip:
+        floating_network_name: { get_input: external_network_name }
+
+#  Create LAN network
+
+  lan_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: lan_network_name }
+
+  lan_network_subnet:
+    type: cloudify.openstack.nodes.Subnet
+    properties:
+      resource_id: { get_input: lan_network_subnet_name }
+      subnet:
+        ip_version: 4
+        cidr: 192.168.17.0/24
+        gateway_ip: 192.168.17.2
+    relationships:
+      - target: lan_network
+        type: cloudify.relationships.contained_in
+
+  lan_network_port:
+    type: cloudify.openstack.nodes.Port
+    properties:
+      resource_id: { get_input: lan_network_port_name }
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: lan_network
+      - type: cloudify.relationships.depends_on
+        target: lan_network_subnet
+
+## Managment network will act as WAN network
+
+#  Create WAN network
+
+  wan_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: wan_network_name }
+
+  wan_network_subnet:
+    type: cloudify.openstack.nodes.Subnet
+    properties:
+      resource_id: { get_input: wan_network_subnet_name }
+      subnet:
+        dns_nameservers: [8.8.8.8]
+        ip_version: 4
+        cidr: 10.20.1.1/24
+        gateway_ip: 10.20.1.2
+    relationships:
+      - target: wan_network
+        type: cloudify.relationships.contained_in
+#      - target: igw_router
+#        type: cloudify.openstack.subnet_connected_to_router
+
+  wan_network_port:
+    type: cloudify.openstack.nodes.Port
+    properties:
+      resource_id: { get_input: wan_network_port_name }
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: wan_network
+      - type: cloudify.relationships.depends_on
+        target: wan_network_subnet
+
+# Create route for IGW
+#
+#  igw_router:
+#    type: cloudify.openstack.nodes.Router
+#    properties:
+#      external_network: { get_input: external_network_name }
+#      resource_id: { get_input: igw_router_name }
+#    relationships:
+#      - type: cloudify.relationships.depends_on
+#        target: wan_network
+
+
+#  ce:
+#    type: cloudify.openstack.nodes.Server
+#    properties:
+#      install_agent: false
+#      image: { get_input: ce_image }
+#      flavor: { get_input: flavor }
+#    relationships:
+#      - target: ce_network_port
+#        type: cloudify.openstack.server_connected_to_port
+#
+#  ce_network_port:
+#    type: cloudify.openstack.nodes.Port
+#    properties:
+#      resource_id: { get_input: ce_network_port_name }
+#    relationships:
+#      - type: cloudify.relationships.contained_in
+#        target: lan_network
+#      - type: cloudify.relationships.depends_on
+#        target: lan_network_subnet
+
+#  pe:
+#    type: cloudify.openstack.nodes.Server
+#    properties:
+#      install_agent: false
+#      image: { get_input: ce_image }
+#      flavor: { get_input: flavor }
+#    relationships:
+#      - target: pe_network_port
+#        type: cloudify.openstack.server_connected_to_port
+#
+#  pe_network_port:
+#    type: cloudify.openstack.nodes.Port
+#    properties:
+#      resource_id: { get_input: pe_network_port_name }
+#    relationships:
+#      - type: cloudify.relationships.contained_in
+#        target: lan_network
+#      - type: cloudify.relationships.depends_on
+#        target: lan_network_subnet
+#######
+

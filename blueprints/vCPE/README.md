@@ -1,3 +1,0 @@
-# cloudify vcpe
-
-# vCPE

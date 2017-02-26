@@ -1,4 +1,0 @@
-plugins:
-  vyatta:
-    executor: central_deployment_agent
-    source: cloudify-vyatta-plugin

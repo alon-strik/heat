@@ -1,0 +1,19 @@
+for node in ctx.nodes:
+    for instance in node.instances:
+
+
+ctx.node.properties['application_name']
+ctx.target.instance.runtime_properties['username']
+ctx.instance.runtime_properties['endpoint']['port']
+
+
+------------------------------------------------------------
+
+2 instance each different group
+nova boot --image "CloudVPS Ubuntu 14.04" --hint group=415eea22-4e37-44e0-a4c9-59c395688fc8 --key-name $ssh_key --flavor "Standard 1" "Anti-Affinity 1-1"
+
+--hint group=$affinity-group-uuid
+
+https://raymii.org/s/articles/Openstack_Affinity_Groups-make-sure-instances-are-on-the-same-or-a-different-hypervisor-host.html
+
+soft component to 

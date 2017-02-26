@@ -1,3 +1,0 @@
-host_ip: '192.168.122.200'
-agent_user: 'admin'
-agent_private_key_path: '/root/.ssh/id_rsa.pub'

@@ -1,0 +1,8 @@
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "cloudify-virtualbox_3.3.0-ga-b300.box"
+  config.vm.box_url = "http://gigaspaces-repository-eu.s3.amazonaws.com/org/cloudify3/3.3.0/ga-RELEASE/cloudify-virtualbox_3.3.0-ga-b300.box"
+  config.vm.network :private_network, ip: "10.10.1.10"
+end
+

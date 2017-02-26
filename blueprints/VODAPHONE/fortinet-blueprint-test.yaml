@@ -1,0 +1,95 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+    - http://www.getcloudify.org/spec/cloudify/3.3/types.yaml
+    - http://www.getcloudify.org/spec/openstack-plugin/1.3/plugin.yaml
+    - http://www.getcloudify.org/spec/fabric-plugin/1.3/plugin.yaml
+    - plugins/cloudify-fortinet-plugin/plugin.yaml
+
+inputs:
+
+  agent_user:
+    default: admin
+  fortinet_image:
+    default: ''
+  ce_image:
+    default: ''
+  flavor:
+    default: ''
+  agent_password:
+    default: ''
+  external_network_name:
+    default: ''
+  lan_network_name:
+    default: ''
+  lan_network_subnet_name:
+    default: ''
+  lan_network_port_name:
+    default: ''
+
+node_templates:
+
+  ce:
+    type: cloudify.openstack.nodes.Server
+    properties:
+      install_agent: false
+      image: { get_input: ce_image }
+      flavor: { get_input: flavor }
+    relationships:
+      - target: ce_network_port
+        type: cloudify.openstack.server_connected_to_port
+
+  ce-confware-component:
+    type: cloudify.nodes.SoftwareComponent
+    relationships:
+      - target: ce
+        type: cloudify.relationships.contained_in
+      - target: ce_network_port
+        type: cloudify.relationships.connected_to
+
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        configure:
+#           implementation: fortinet.fortinet_plugin.tasks.port_config
+           implementation: fortinet.fortinet_plugin.tasks.test
+           executor: central_deployment_agent
+#        start:
+#           implementation: fortinet.fortinet_plugin.tasks.policy_config
+#           executor: central_deployment_agent
+
+  ce_network_port:
+    type: cloudify.openstack.nodes.Port
+    properties:
+      resource_id: { get_input: lan_network_port_name }
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: lan_network
+      - type: cloudify.relationships.depends_on
+        target: lan_network_subnet
+
+  lan_network:
+    type: cloudify.openstack.nodes.Network
+    properties:
+      resource_id: { get_input: lan_network_name }
+
+  lan_network_subnet:
+    type: cloudify.openstack.nodes.Subnet
+    properties:
+      resource_id: { get_input: lan_network_subnet_name }
+      subnet:
+        ip_version: 4
+        cidr: 192.168.1.99/24
+    relationships:
+      - target: lan_network
+        type: cloudify.relationships.contained_in
+
+#  lan_network_port:
+#    type: cloudify.openstack.nodes.Port
+#    properties:
+#      resource_id: { get_input: lan_network_port_name }
+#      fixed_ip: { get_input: fortinet_lan_static_ip }
+#    relationships:
+#      - type: cloudify.relationships.contained_in
+#        target: lan_network
+#      - type: cloudify.relationships.depends_on
+#        target: lan_network_subnet

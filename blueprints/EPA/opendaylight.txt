@@ -1,0 +1,76 @@
+Installing OpenDaylight
+--------------------------
+If you are using a full image, OpenDaylight is pre-installed. If you are using a minimal image, OpenDaylight must be installed.
+The OpenDaylight project provides zip and tar distributions of each release. CloudRouter takes these distributions, adds some modifications, and then packages them as RPMs. Installation is as simple as running:
+
+$ sudo yum install -y opendaylight-lithium
+Running OpenDaylight
+Before running OpenDaylight for the first time, you need to create karaf credentials. The upstream distributions of OpenDaylight includes default credentials (karaf/karaf), which have been removed from CloudRouter for security reasons. To create karaf credentials, edit /opt/opendaylight/opendaylight-lithium/etc/users.properties. You will see a commented out user:
+# karaf = karaf,_g_:admingroup
+Replace this with your own credentials, e.g.:
+user = password,_g_:admingroup
+To start OpenDaylight:
+$ sudo systemctl start opendaylight-lithium
+To check the status of OpenDaylight:
+$ sudo systemctl status opendaylight-lithium
+To connect to the karaf console via SSH:
+$ ssh -p 8101 -o StrictHostKeyChecking=no <USER>@localhost
+Where <USER> matches the karaf credentials you created. You will then be prompted to enter the karaf password you set.
+To stop OpenDaylight:
+
+$ sudo systemctl stop opendaylight-lithium
+
+Uninstalling OpenDaylight
+$ sudo yum remove -y opendaylight-lithium
+
+
+
+
+
+
+sudo systemctl start opendaylight-helium
+sudo systemctl status opendaylight-helium
+
+sudo systemctl status firewalld.service
+
+ssh -p 8101 -o StrictHostKeyChecking=no cloudrouter@localhost
+
+
+
+
+
+vi  /opt/opendaylight/opendaylight-helium/etc/users.properties
+
+add line - 
+cloudrouter = Password,_g_:admingroup
+
+to access kafka : 
+/opt/opendaylight/opendaylight-helium/bin/kafka
+ssh -p 8101 -o StrictHostKeyChecking=no cloudrouter@localhost
+
+
+DLUX:
+
+opendaylight-user@root>feature:install odl-restconf odl-l2switch-switch odl-mdsal-apidocs odl-dlux-core
+
+feature:install odl-dlux-all odl-restconf odl-l2switch-switch
+sudo systemctl status firewalld.service
+
+
+???
+
+feature:install odl-base-all odl-aaa-authn odl-restconf odl-adsal-northbound odl-mdsal-apidocs odl-l2switch-switch
+feature:install odl-ovsdb-northbound
+
+features :
+
+/opt/opendaylight/opendaylight-helium/etc/opendaylight/karaf
+
+http://sdnhub.org/tutorials/opendaylight/
+
+
+
+-----------------
+
+
+http://sdntutorials.com/opendaylight-netconf-restconf-and-yang/
