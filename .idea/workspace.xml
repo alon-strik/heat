@@ -2,8 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="74bdca41-160a-49e7-a5f3-b23293050538" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/Fortigate" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/vCPE" afterPath="" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <list id="f6598cdf-2e1e-4556-affd-0b2ce2cb2d36" name="Failed commit: Default" comment="---" />
@@ -675,7 +673,7 @@
       <workItem from="1487588569318" duration="2154000" />
       <workItem from="1487616131586" duration="672000" />
       <workItem from="1487664196708" duration="1810000" />
-      <workItem from="1488105710867" duration="486000" />
+      <workItem from="1488105710867" duration="566000" />
     </task>
     <task id="LOCAL-00001" summary="load">
       <created>1487692119943</created>
@@ -712,11 +710,25 @@
       <option name="project" value="LOCAL" />
       <updated>1488106069867</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="---">
+      <created>1488106200464</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1488106200464</updated>
+    </task>
+    <task id="LOCAL-00007" summary="---">
+      <created>1488106249710</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1488106249710</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="5475000" />
+    <option name="totallyTimeSpent" value="5555000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="43" y="24" width="1877" height="1056" extended-state="6" />
